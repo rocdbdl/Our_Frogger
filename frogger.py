@@ -1,34 +1,42 @@
 import pygame
-import random
 import time
+import random
+import astar
 
+# NOUVEAU : On importera notre futur fichier astar.py ici
+# import astar
+
+# === CONSTANTES & CONFIG ===
 pygame.init()
 screen_width = 350
 screen_height = 400
 white = (255, 255, 255)
 
-finish = False   # Check if application is running
-fps = 20  # Simulation speed, can be changed if needed
-frogNum = 100  # Number of frogs in each generation, can be changed if needed
+finish = False
+fps = 30  # Légèrement augmenté pour une meilleure fluidité visuelle
 
 screen = pygame.display.set_mode((screen_width, screen_height))
-pygame.display.set_caption('Frogger-AI-bot')
+pygame.display.set_caption('Frogger-AI-bot avec A*')
 clock = pygame.time.Clock()
 
-all_sprites = pygame.sprite.Group()
 backgroundImage = pygame.image.load('images/background.gif')
 
+# === GROUPES DE SPRITES ===
+all_sprites = pygame.sprite.Group()
+cars = pygame.sprite.Group()  # NOUVEAU : groupe dédié pour les voitures
+logs = pygame.sprite.Group()   # NOUVEAU : groupe dédié pour les bûches
 turtles = pygame.sprite.Group()
-frogs = pygame.sprite.Group()
+frogs = pygame.sprite.Group() # Contiendra notre unique grenouille
 
-frog = pygame.image.load('images/frog10.gif')
-frogDead = pygame.image.load('images/frog11.png')
+# === CHARGEMENT DES IMAGES ===
+frog_img = pygame.image.load('images/frog10.gif')
+frog_dead_img = pygame.image.load('images/frog11.png')
 
-yellowCar = pygame.image.load('images/yellowCar.gif')  # row 2
-dozer = pygame.image.load('images/dozer.gif')  # row 3
-purpleCar = pygame.image.load('images/purpleCar.gif')  # row 4
-greenCar = pygame.image.load('images/greenCar.gif')  # row 5
-truck = pygame.image.load('images/truck.gif')  # row 6
+yellowCar = pygame.image.load('images/yellowCar.gif')
+dozer = pygame.image.load('images/dozer.gif')
+purpleCar = pygame.image.load('images/purpleCar.gif')
+greenCar = pygame.image.load('images/greenCar.gif')
+truck = pygame.image.load('images/truck.gif')
 
 logShort = pygame.image.load('images/logShort.gif')
 logMedium = pygame.image.load('images/logMedium.gif')
@@ -39,44 +47,31 @@ twoTurtlesDive = pygame.image.load('images/turtletwodown.gif')
 threeTurtles = pygame.image.load('images/turtlethree.gif')
 threeTurtlesDive = pygame.image.load('images/turtlethreedown.gif')
 
-turtleCounter = 0  # Timer for turtle state
+turtleCounter = 0
+
+# NOTE : Les classes Turtle, Log, et Car restent quasi-identiques.
+# La seule modification est que leur méthode collision vérifie maintenant le groupe 'frogs'
+# qui ne contient qu'une seule grenouille. Le code original était déjà bien fait à ce niveau.
 
 class Turtle(pygame.sprite.Sprite):
     def __init__(self, canDive, size, startX, startY, width, height, speed):
         pygame.sprite.Sprite.__init__(self)
-        self.canDive = canDive  # 1 - does not dive, 2 - dives
+        self.canDive = canDive
         self.size = size
-        self.image = pygame.Surface((width, height))
-        self.rect = self.image.get_rect()
-        self.rect.x = startX
-        self.rect.y = startY
-        self.width = width
-        self.height = height
+        self.image = twoTurtles if size == 2 else threeTurtles
+        self.rect = self.image.get_rect(topleft=(startX, startY))
         self.speed = speed
         self.state = 0  # 0 - not diving, 1 - diving
 
-        if (self.size == 2):
-            self.image = twoTurtles
-        elif (self.size == 3):
-            self.image = threeTurtles
-
-    # Updates location of turtle
     def update(self):
         self.rect.x += self.speed
-
-        if (self.size == 2):
-            if (self.rect.x + 50 < 0):
-                self.rect.x = screen_width + 50
-        elif (self.size == 3):
-            if (self.rect.x + 75 < 0):
-                self.rect.x = screen_width + 75
-
+        if self.speed < 0 and self.rect.right < 0:
+            self.rect.left = screen_width
         self.collision()
 
-    # Checks to see if frog is on turtle, if turtles have dived frog needs to die
     def collision(self):
         for f in frogs:
-            if f.rect.colliderect(self) and f.dead == False:
+            if f.rect.colliderect(self) and not f.dead:
                 if self.state == 1:
                     f.die()
                 else:
@@ -85,348 +80,259 @@ class Turtle(pygame.sprite.Sprite):
 class Log(pygame.sprite.Sprite):
     def __init__(self, startX, startY, size, width, height, speed):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((width, height))
-        self.rect = self.image.get_rect()
-        self.rect.x = startX
-        self.rect.y = startY
         self.size = size
-        self.width = width
-        self.height = height
+        if self.size == 'short': self.image = logShort
+        elif self.size == 'medium': self.image = logMedium
+        else: self.image = logLong
+        self.rect = self.image.get_rect(topleft=(startX, startY))
         self.speed = speed
 
-        if (self.size == 'short'):
-            self.image = logShort
-        elif (self.size == 'medium'):
-            self.image = logMedium
-        elif (self.size == 'long'):
-            self.image = logLong
-
-    # Updating log position
     def update(self):
         self.rect.x += self.speed
-
-        if (self.size == 'short' or self.size == 'medium'):
-            if (self.rect.x - 100 > screen_width):
-                self.rect.x = -100
-        else:
-            if (self.rect.x - 200 > screen_width):
-                self.rect.x = -200
-
+        if self.speed > 0 and self.rect.left > screen_width:
+            self.rect.right = 0
         self.collision()
 
-    # Checking for collision with frogs
     def collision(self):
         for f in frogs:
-            if f.rect.colliderect(self) and f.dead == False:
+            if f.rect.colliderect(self) and not f.dead:
                 f.rect.x += self.speed
 
-# Car Object
 class Car(pygame.sprite.Sprite):
     def __init__(self, startX, startY, img, speed, direction, width, height):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((width, height))
-        self.rect = self.image.get_rect()
-        self.rect.x = startX
-        self.rect.y = startY
-        self.img = img
-        self.speed = speed
-        self.direction = direction  # -1 - left, 1 - right
-        self.width = width
-        self.height = height
+        if img == 'yellow': self.image = yellowCar
+        elif img == 'green': self.image = greenCar
+        elif img == 'truck': self.image = truck
+        elif img == 'dozer': self.image = dozer
+        elif img == 'purple': self.image = purpleCar
+        self.rect = self.image.get_rect(topleft=(startX, startY))
+        self.speed = speed * direction
 
-        if (self.img == 'yellow'):
-            self.image = yellowCar
-        elif (self.img == 'green'):
-            self.image = greenCar
-        elif (self.img == 'truck'):
-            self.image = truck
-        elif (self.img == 'dozer'):
-            self.image = dozer
-        elif (self.img == 'purple'):
-            self.image = purpleCar
-
-    # Update car position
     def update(self):
-        if (self.direction == -1):
-            self.rect.x += self.speed
-        elif (self.direction == 1):
-            self.rect.x -= self.speed
-
-        if (self.direction == -1 and self.rect.x - 75 > screen_width):
-            self.rect.x = -75
-        elif (self.direction == 1 and self.rect.x + 75 < 0):
-            self.rect.x = screen_width + 75
+        self.rect.x += self.speed
+        if self.speed > 0 and self.rect.left > screen_width:
+            self.rect.right = 0
+        elif self.speed < 0 and self.rect.right < 0:
+            self.rect.left = screen_width
         self.collision()
 
-    # Checks car collision with frogs
     def collision(self):
-        for f in frogs:
-            if (self.rect.colliderect(f) and f.dead == False):
+        collided_frogs = pygame.sprite.spritecollide(self, frogs, False)
+        for f in collided_frogs:
+            if not f.dead:
                 f.die()
 
+
+# MODIFIÉ : La classe Frog est grandement simplifiée
 class Frog(pygame.sprite.Sprite):
-    dead = False
-    fitness = 0
-
-    def __init__(self, xpos, ypos, size, brain):
+    def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        self.image = pygame.Surface((25, 25))
+        self.image = frog_img
         self.rect = self.image.get_rect()
-        self.rect.x = xpos
-        self.rect.y = ypos
-        self.size = size
-        self.brain = brain
-        self.image = frog
+        self.reset()
+        
+        # NOUVEAU : Attributs pour A*
+        self.path = []      # Le chemin à suivre, généré par A*
+        self.path_step = 0  # L'étape actuelle dans le chemin
 
-    # Update frog position
+    def reset(self):
+        """ Réinitialise la position et l'état de la grenouille. """
+        self.rect.centerx = screen_width / 2
+        self.rect.y = 350
+        self.dead = False
+        self.image = frog_img
+        self.path = []
+        self.path_step = 0
+        print("Grenouille réinitialisée.")
+
     def update(self):
-        stepNum = self.brain.step
-        if stepNum < self.size and self.dead == False:
-            if self.brain.directions[stepNum] == 1:
-                self.rect.y -= 25
-                self.fitness += 1 # Goes forward so fitness + 1
-            elif self.brain.directions[stepNum] == 2 and self.rect.y < 375:
-                self.rect.y += 25
-                self.fitness -= 1 # Goes backwards so fitness + 1
-            elif self.brain.directions[stepNum] == 3 and self.rect.x > 25:
-                self.rect.x -= 25
-            elif self.brain.directions[stepNum] == 4 and self.rect.x < 300:
-                self.rect.x += 25
+        """ Met à jour la grenouille. Soit en suivant le chemin A*, soit en vérifiant si elle est morte. """
+        if self.dead:
+            return
 
-            self.brain.step += 1
+        # NOUVEAU : Logique de suivi de chemin
+        if self.path and self.path_step < len(self.path):
+            next_pos = self.path[self.path_step]
+            # Les positions dans le chemin seront des coordonnées de grille (ex: (7, 14))
+            # Nous les convertissons en pixels. La taille d'une case est 25x25.
+            self.rect.x = next_pos[0] * 25
+            self.rect.y = next_pos[1] * 25
+            self.path_step += 1
+        
+        # Vérification des conditions de mort ou de victoire
+        self.check_status()
 
-        # If frog is in the river
-        if self.rect.y <= 175 and self.rect.y != 50 and self.dead == False:
-            onLog = False
-            for x in all_sprites:
-                if x.rect.colliderect(self):
-                    onLog = True
-                    break
-            for x in turtles:
-                if x.rect.colliderect(self):
-                    onLog = True
-                    break
-            if onLog == False:
+    def check_status(self):
+        """ Vérifie si la grenouille est dans l'eau, hors de l'écran ou a gagné. """
+        # Hors de l'écran
+        if self.rect.right < 0 or self.rect.left > screen_width:
+            self.die()
+            
+        # Dans la rivière (zone dangereuse)
+        if self.rect.y <= 175 and self.rect.y > 50:
+            on_safe_surface = False
+            # Vérifie si elle est sur une bûche ou une tortue
+            for surface in pygame.sprite.spritecollide(self, logs, False):
+                on_safe_surface = True
+            for surface in pygame.sprite.spritecollide(self, turtles, False):
+                if surface.state == 0: # Si la tortue ne plonge pas
+                    on_safe_surface = True
+            
+            if not on_safe_surface:
                 self.die()
-        elif self.rect.y == 50 and self.dead == False:
-            self.fitness = 13 # Finished game
-            self.dead = True # Sets so we can restart the game
-            Population.frogsAlive -= 1
 
-    # If the frog dies add changes
+        # Zone d'arrivée
+        elif self.rect.y <= 50:
+            print("🎉 Victoire ! La grenouille a atteint l'arrivée ! 🎉")
+            self.reset() # On la réinitialise pour une nouvelle traversée
+
     def die(self):
-        self.image = frogDead
-        self.dead = True
-        Population.frogsAlive -= 1
+        """ La grenouille meurt. """
+        if not self.dead:
+            print("💀 La grenouille est morte. 💀")
+            self.image = frog_dead_img
+            self.dead = True
 
-class Population:
-    bestFrog = 0  # The index for the most fit frog
-    fitnessSum = 0  # Sum of all frogs' fitness
-    frogsAlive = frogNum  # All frogs are alive at the beginning
-    isFinished = False  # Sets to True when a frog reaches the end of the game
-    generation = 1 # Set to 1 in the beginning
+    def move_to(self, grid_pos):
+        """ Déplace la grenouille vers une nouvelle case de la grille. """
+        self.rect.x = grid_pos[0] * astar.TILE_SIZE
+        self.rect.y = grid_pos[1] * astar.TILE_SIZE
 
-    def __init__(self, alive, size):
-        self.size = size # Number of directions given to a frog
-        self.alive = alive
-        self.randomize()
-
-    # Randomizes the frog's directions
-    def randomize(self):
-        for i in range(0, self.alive):
-            directions = []
-            for z in range(0, self.size):
-                randomNum = random.randint(0, 4)
-                directions.append(randomNum)
-
-            dir = FrogDirections(1000, directions)
-            frogs.add(Frog(167.5, 350, self.size, dir))
-
-    # Finding the sum of all the fitnesses from previous generation
-    def setFitnessSum(self):
-        sum = 0
-        for frog in frogs:
-            sum += frog.fitness
-        self.fitnessSum = sum
-
-    # Randomly selecting a parent frog from previous generation
-    def selectParent(self):
-        self.setFitnessSum()
-        rand = random.randint(frogNum, self.fitnessSum)
-        runningSum = 0
-        for frog in frogs:
-            runningSum += frog.fitness
-            if runningSum >= rand:
-                return frog.brain.directions
-
-    # Selecting a new generation of frogs
-    def selection(self):
-        best = list(self.bestFrogDirections())
-        newFrogs = []
-        if (self.isFinished == False):
-            dir = list(best)
-            newDirections = FrogDirections(1000, dir)
-            newFrogs.append(Frog(167.5, 350, self.size, newDirections)) # Save the best frog
-
-            for x in range(1, frogNum):
-                dir = list(self.selectParent())
-                newDirections = FrogDirections(1000, mutate(dir))
-                newFrogs.append(Frog(167.5, 350, self.size, newDirections))
-            Population.frogsAlive = frogNum
-
-            frogs.empty()
-            for frog in newFrogs:
-                frogs.add(frog)
-        else: # If a frog has gotten to the end reset his position to the start of the game
-            frogs.empty()
-            for x in range(0, 1):
-                dir = list(best)
-                directions = FrogDirections(1000, dir)
-                frogs.add(Frog(167.5, 350, self.size, directions))
-            Population.frogsAlive = 1
-
-    # Determine the best frog directions from the previous generation and return its directions
-    def bestFrogDirections(self):
-        if (self.isFinished == False):
-            sortedFrogs = []
-            for frog in frogs:
-                sortedFrogs.append(frog)
-
-            sortedFrogs.sort(key = lambda frog: frog.fitness) # Sort frogs by fitness
-
-            best = frogNum - 1
-            for i in range(0, frogNum - 1):
-                if sortedFrogs[i].brain.step < sortedFrogs[frogNum - 1].brain.step and sortedFrogs[i].fitness == sortedFrogs[frogNum - 1].fitness:
-                    best = i
-
-            if (sortedFrogs[best].fitness == 13):
-                self.isFinished = True
-            else:
-                self.generation += 1
-
-            for frog in frogs:
-                if (sortedFrogs[best].fitness == frog.fitness and sortedFrogs[best].brain.step == frog.brain.step):
-                    bestFrogDirections = list(frog.brain.directions)
-                    break
-            return bestFrogDirections
-        else:
-            for frog in frogs:
-                bestFrogDirections = list(frog.brain.directions)
-            return bestFrogDirections
-
-class FrogDirections:
-    step = 0
-    def __init__(self, size, directions):
-        self.size = size
-        self.directions = directions
-
-# Randomly mutates the direction vectors of the frog
-def mutate(d):
-    for i in range(0, len(d)):
-        randomNum = random.randint(0, 4)
-        if randomNum == 1:
-            d[i] = random.randint(0, 4)
-    return d
-
+# === FONCTIONS UTILITAIRES ===
 def text_objects(text, font):
     textSurface = font.render(text, True, white)
     return textSurface, textSurface.get_rect()
 
 def message_display(text, position):
-    largeText = pygame.font.Font('freesansbold.ttf', 16) # default pygame font
+    largeText = pygame.font.Font('freesansbold.ttf', 16)
     TextSurf, TextRect = text_objects(text, largeText)
     TextRect.center = ((screen_width / 2), 10 + position)
     screen.blit(TextSurf, TextRect)
 
-# Sets and resets the game screen
-def set():
-    for t in turtles:
-        t.kill()
-    for a in all_sprites:
-        a.kill()
-
-    turtleCounter = 0
-
-    # Creation of objects
+def set_level():
+    """ Configure ou réinitialise les obstacles sur l'écran. """
+    # Nettoyer les anciens sprites avant d'en créer de nouveaux
+    for sprite in all_sprites:
+        sprite.kill()
+    
     # (canDive, size, startX, startY, width, height, speed)
-    for i in range(0, 8):
+    for i in range(8):
+        is_diving = i % 3 == 0
         if i < 4:
-            if i % 3 == 0: #every third turtle should be able to dive
-                turtles.add(Turtle(2, 3, 100 * (4 - i), 175, 75, 25, -2))
-            else:
-                turtles.add(Turtle(1, 3, 100 * (4 - i), 175, 75, 25, -2))
+            t = Turtle(2 if is_diving else 1, 3, 100 * i, 175, 75, 25, -2)
         else:
-            if i % 3 == 0:
-                turtles.add(Turtle(2, 2, 87.5 * (8 - i), 100, 50, 25, -2))
-            else:
-                turtles.add(Turtle(1, 2, 87.5 * (8 - i), 100, 50, 25, -2))
+            t = Turtle(2 if is_diving else 1, 2, 87.5 * (i-4), 100, 50, 25, -2.5)
+        turtles.add(t)
+        all_sprites.add(t)
+
+    # (x, y, size, width, height, speed)
+    for i in range(9):
+        if i < 3: l = Log(150 * i, 150, 'short', 62.5, 25, 3)
+        elif i < 6: l = Log(200 * (i-3), 125, 'long', 150, 25, 4)
+        else: l = Log(150 * (i-6), 75, 'medium', 87.5, 25, 2)
+        logs.add(l)
+        all_sprites.add(l)
+
     # (x, y, img, speed, direction, width, height)
-    for i in range(0, 9):
-        if i < 3:
-            all_sprites.add(Log(-100 + 150 * (3 - i), 150, 'short', 62.5, 25, 3))
-        elif i < 6:
-            all_sprites.add(Log(-150 + 200 * (6 - i), 125, 'long', 150, 25, 4))
-        else:
-            all_sprites.add(Log(-200 + 150 * (9 - i), 75, 'medium', 87.5, 25, 6))
-    for i in range(0, 12):
-        if i < 3:
-            all_sprites.add(Car(100 + 75 * (3 - i), 325, 'yellow', 6, 1, 25, 25))
-        elif i < 6:
-            all_sprites.add(Car(-150 + 75 * (6 - i), 300, 'dozer', 2, -1, 25, 25))
-        elif i < 9:
-            all_sprites.add(Car(50 + 75 * (9 - i), 275, 'purple', 4, 1, 25, 25))
-        elif i < 10:
-            all_sprites.add(Car(25 + 75 * (10 - i), 250, 'green', 10, -1, 25, 25))
-        else:
-            all_sprites.add(Car(50 + 150 * (12 - i), 225, 'truck', 3, 1, 50, 25))
+    for i in range(12):
+        if i < 3: c = Car(75 * i, 325, 'yellow', 6, -1, 25, 25)
+        elif i < 6: c = Car(75 * (i-3), 300, 'dozer', 2, 1, 25, 25)
+        elif i < 9: c = Car(75 * (i-6), 275, 'purple', 4, -1, 25, 25)
+        elif i < 10: c = Car(75 * (i-9), 250, 'green', 10, 1, 25, 25)
+        else: c = Car(150 * (i-10), 225, 'truck', 3, -1, 50, 25)
+        cars.add(c)
+        all_sprites.add(c)
 
-pop = Population(frogNum, 1000) # (number of alive frogs, number of directions)
-set()
+# === INITIALISATION DU JEU ===
+player_frog = Frog()
+frogs.add(player_frog)
+set_level()
 
-# The main game loop
+# NOUVEAU : Variable pour gérer la mort et la réinitialisation
+frog_dead_timer = 0
+RESTART_DELAY = 2000 # 2 secondes de délai après la mort
+
+# === BOUCLE DE JEU PRINCIPALE ===
 while not finish:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
             finish = True
 
+    # NOUVEAU : Logique de réinitialisation après la mort
+    if player_frog.dead:
+        if frog_dead_timer == 0:
+            frog_dead_timer = pygame.time.get_ticks() # Démarrer le chrono
+        elif pygame.time.get_ticks() - frog_dead_timer > RESTART_DELAY:
+            player_frog.reset()
+            frog_dead_timer = 0
+            # On ne réinitialise plus les obstacles pour voir comment A* s'adapte
+            # set_level() 
+
+    # --- Logique de l'IA (à remplir) ---
+        # --- Logique de l'IA (Maintenant fonctionnelle) ---
+    if not player_frog.dead:
+        # 1. Créer la grille à jour
+        grid = astar.create_grid(screen_width, screen_height, cars, logs, turtles)
+
+        # 2. Définir le départ et l'arrivée
+        start_pos_grid = (player_frog.rect.x // astar.TILE_SIZE, player_frog.rect.y // astar.TILE_SIZE)
+
+        # Définir plusieurs points d'arrivée possibles (les "maisons" de la grenouille)
+        end_positions = [(x, 2) for x in range(1, 13, 2)] # Cases de la ligne y=50
+
+        # Choisir la destination la plus proche comme cible
+        # (Une amélioration simple mais efficace)
+        end_pos_grid = min(end_positions, key=lambda pos: abs(pos[0] - start_pos_grid[0]))
+
+        # 3. Trouver le chemin
+        path = astar.astar(grid, start_pos_grid, end_pos_grid)
+
+        # 4. Faire le premier pas si un chemin existe
+        if path and len(path) > 1:
+            next_step = path[1]
+            player_frog.move_to(next_step)
+        else:
+            # Si aucun chemin n'est trouvé, la grenouille ne bouge pas.
+            # On pourrait ajouter une logique ici, comme attendre un peu.
+            # print("Aucun chemin trouvé, en attente...")
+            pass
+
+    # Mettre à jour les sprites APRES la décision de l'IA
+    all_sprites.update() 
+    player_frog.check_status() # On vérifie le statut après le mouvement du monde
+
+
+    # --- Mise à jour des éléments ---
+    if not player_frog.dead:
+        all_sprites.update()
+        frogs.update()
+
+    # --- Affichage ---
     screen.blit(backgroundImage, (0, 0))
-
-    # If all frogs are dead, reset game board
-    if (Population.frogsAlive == 0):
-        pop.selection()
-        set()
-        time.sleep(2.5) # Sleeps so that the frogs are given a chance to reset properly before the game restarts
-
-    message_display('Generation: ' + str(pop.generation), 0)
-    message_display('Frogs alive: ' + str(pop.frogsAlive), 18)
-    all_sprites.update()
     all_sprites.draw(screen)
-    turtles.update()
-    turtles.draw(screen)
-    frogs.update()
     frogs.draw(screen)
 
+    # Affichage du statut (simplifié)
+    if player_frog.dead:
+        message_display('MORT', 0)
+    else:
+        message_display('VIVANT', 0)
+    
     pygame.display.update()
     clock.tick(fps)
 
-    # Handling diving of turtles
+    # --- Gestion des tortues qui plongent ---
     turtleCounter += 1
-    if turtleCounter == 50:
+    if turtleCounter >= 50:
         turtleCounter = 0
         for t in turtles:
             if t.canDive == 2:
-                if t.state == 0:
-                    t.state = 1
-                    if t.size == 2:
-                        t.image = twoTurtlesDive
-                    else:
-                        t.image = threeTurtlesDive
+                t.state = 1 - t.state # Bascule entre 0 et 1
+                if t.size == 2:
+                    t.image = twoTurtlesDive if t.state == 1 else twoTurtles
                 else:
-                    t.state = 0
-                    if t.size == 2:
-                        t.image = twoTurtles
-                    else:
-                        t.image = threeTurtles
+                    t.image = threeTurtlesDive if t.state == 1 else threeTurtles
 
 pygame.quit()
 quit()
