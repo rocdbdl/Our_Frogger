@@ -24,50 +24,56 @@ class Node:
 def create_grid(screen_width, screen_height, cars, logs, turtles):
     """
     Crée une grille 2D représentant l'état actuel du jeu.
-    Retourne une grille où 0 = praticable, 1 = obstacle.
+    0 = praticable, 1 = obstacle.
     """
-    # Calcule les dimensions de la grille en fonction de la taille des cases
     grid_width = screen_width // TILE_SIZE
     grid_height = screen_height // TILE_SIZE
-    
-    # Initialise une grille vide où tout est praticable (valeur 0)
     grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
 
-    # --- On marque les zones d'eau comme des obstacles ---
-    # Lignes 3 à 7 correspondent à la rivière (de y=75 à y=175)
+    # Marque la rivière comme obstacles (lignes 3 à 7)
     for row in range(3, 8):
-        for col in range(grid_width):
-            grid[row][col] = 1 # 1 = Obstacle
-
-    # --- On marque les surfaces sûres sur l'eau (bûches, tortues) ---
-    # Les cases occupées par ces objets redeviennent praticables (valeur 0)
-    safe_surfaces = pygame.sprite.Group(logs, turtles)
-    for sprite in safe_surfaces:
-        # Pour les tortues, ne les considérer sûres que si elles ne plongent pas
-        if isinstance(sprite, pygame.sprite.Sprite) and hasattr(sprite, 'state') and sprite.state == 1:
-            continue # Si la tortue plonge (state=1), elle n'est pas sûre, on passe
-
-        # Convertit les coordonnées en pixels du sprite en coordonnées de grille
-        start_col = sprite.rect.left // TILE_SIZE
-        end_col = sprite.rect.right // TILE_SIZE
-        row = sprite.rect.top // TILE_SIZE
-        
-        # Marque toutes les cases sous le sprite comme praticables
-        for col in range(start_col, end_col + 1):
-            if 0 <= col < grid_width:
-                grid[row][col] = 0
-
-    # --- On marque les voitures comme des obstacles ---
-    for car in cars:
-        start_col = car.rect.left // TILE_SIZE
-        end_col = car.rect.right // TILE_SIZE
-        row = car.rect.top // TILE_SIZE
-
-        for col in range(start_col, end_col + 1):
-            if 0 <= row < grid_height and 0 <= col < grid_width:
+        if 0 <= row < grid_height:
+            for col in range(grid_width):
                 grid[row][col] = 1
 
+    # Surfaces sûres (bûches & tortues non plongeantes)
+    safe_surfaces = pygame.sprite.Group(logs, turtles)
+    for sprite in safe_surfaces:
+        # Tortues plongeantes non sûres
+        if hasattr(sprite, 'state') and sprite.state == 1:
+            continue
+
+        row = sprite.rect.top // TILE_SIZE
+        if not (0 <= row < grid_height):
+            continue
+
+        start_col = sprite.rect.left // TILE_SIZE
+        end_col = (sprite.rect.right - 1) // TILE_SIZE  # borne droite exclusive -> -1
+
+        # Clamp dans la grille
+        start_col = max(0, start_col)
+        end_col = min(grid_width - 1, end_col)
+
+        for col in range(start_col, end_col + 1):
+            grid[row][col] = 0
+
+    # Voitures = obstacles
+    for car in cars:
+        row = car.rect.top // TILE_SIZE
+        if not (0 <= row < grid_height):
+            continue
+
+        start_col = car.rect.left // TILE_SIZE
+        end_col = (car.rect.right - 1) // TILE_SIZE
+
+        start_col = max(0, start_col)
+        end_col = min(grid_width - 1, end_col)
+
+        for col in range(start_col, end_col + 1):
+            grid[row][col] = 1
+
     return grid
+
 
 
 
@@ -77,60 +83,78 @@ def create_grid(screen_width, screen_height, cars, logs, turtles):
 # n'est pas encore là dans la frame actuelle t.
 def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter):
     """
-    Crée une grille 2D représentant l'état du jeu à la PROCHAINE frame (t+1).
+    Grille 2D représentant l'état du jeu à la PROCHAINE frame (t+1).
     0 = praticable, 1 = obstacle.
     """
     grid_width = screen_width // TILE_SIZE
     grid_height = screen_height // TILE_SIZE
     grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
 
-    # On marque les zones d'eau comme des obstacles
+    # Marque la rivière comme obstacles (lignes 3 à 7)
     for row in range(3, 8):
-        for col in range(grid_width):
-            grid[row][col] = 1
-
-    # On prédit la position des surfaces sûres
-    safe_surfaces = pygame.sprite.Group(logs, turtles)
-    for sprite in safe_surfaces:
-        # On prédit si la tortue va plonger
-        will_dive = False
-        if isinstance(sprite, pygame.sprite.Sprite) and hasattr(sprite, 'canDive') and sprite.canDive == 2:
-            # Si le compteur arrive à 50 à la prochaine frame, l'état va s'inverser
-            if (turtle_counter + 1) % 50 == 0:
-                will_dive = (sprite.state == 0) # Si elle ne plonge pas, elle va plonger
-            else:
-                will_dive = (sprite.state == 1) # Si elle plonge, elle continue de plonger
-        
-        if will_dive:
-            continue  # Cette tortue ne sera pas sûre, on ne la marque pas
-
-        # Calcul de la position future
-        future_rect_left = sprite.rect.left + sprite.speed
-        future_rect_right = sprite.rect.right + sprite.speed
-        
-        start_col = int(future_rect_left // TILE_SIZE)
-        end_col = int(future_rect_right // TILE_SIZE)
-        row = sprite.rect.top // TILE_SIZE
-        
-        for col in range(start_col, end_col + 1):
-            if 0 <= col < grid_width:
-                grid[row][col] = 0
-
-
-    # On prédit la position des voitures
-    for car in cars:
-        # Calcul de la position future
-        future_rect_left = car.rect.left + car.speed
-        future_rect_right = car.rect.right + car.speed
-
-        start_col = int(future_rect_left // TILE_SIZE)
-        end_col = int(future_rect_right // TILE_SIZE)
-        row = car.rect.top // TILE_SIZE
-
-        for col in range(start_col, end_col + 1):
-            if 0 <= row < grid_height and 0 <= col < grid_width:
+        if 0 <= row < grid_height:
+            for col in range(grid_width):
                 grid[row][col] = 1
 
+    # Surfaces sûres prédites (bûches & tortues non plongeantes à t+1)
+    safe_surfaces = pygame.sprite.Group(logs, turtles)
+    for sprite in safe_surfaces:
+        # Prédire le plongeon des tortues
+        will_dive = False
+        if hasattr(sprite, 'canDive') and sprite.canDive == 2:
+            if (turtle_counter + 1) % 50 == 0:
+                will_dive = (sprite.state == 0)  # va commencer à plonger
+            else:
+                will_dive = (sprite.state == 1)  # reste en plongée
+
+        if will_dive:
+            continue
+
+        # Position future à t+1
+        future_left = sprite.rect.left + sprite.speed
+        future_right = sprite.rect.right + sprite.speed
+        row = sprite.rect.top // TILE_SIZE
+        if not (0 <= row < grid_height):
+            continue
+
+        start_col = int(future_left // TILE_SIZE)
+        end_col = int((future_right - 1) // TILE_SIZE)  # borne droite exclusive -> -1
+
+        # Clamp
+        start_col = max(0, start_col)
+        end_col = min(grid_width - 1, end_col)
+
+        for col in range(start_col, end_col + 1):
+            grid[row][col] = 0
+
+    # Voitures prédites à t+1 = obstacles
+    for car in cars:
+        future_left = car.rect.left + car.speed
+        future_right = car.rect.right + car.speed
+        row = car.rect.top // TILE_SIZE
+        if not (0 <= row < grid_height):
+            continue
+
+        start_col = int(future_left // TILE_SIZE)
+        end_col = int((future_right - 1) // TILE_SIZE)
+
+        start_col = max(0, start_col)
+        end_col = min(grid_width - 1, end_col)
+
+        for col in range(start_col, end_col + 1):
+            grid[row][col] = 1
+
+    return grid
+
+def conservative_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter):
+    g_now  = create_grid(screen_width, screen_height, cars, logs, turtles)
+    g_next = create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter)
+    h, w = len(g_now), len(g_now[0])
+    grid = [[0]*w for _ in range(h)]
+    for r in range(h):
+        for c in range(w):
+            # 1 = obstacle. On est conservateur: obstacle s'il y a obstacle maintenant OU à la prochaine frame.
+            grid[r][c] = 1 if (g_now[r][c] == 1 or g_next[r][c] == 1) else 0
     return grid
 
 
