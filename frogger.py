@@ -11,7 +11,7 @@ screen_height = 400
 white = (255, 255, 255)
 
 finish = False
-fps = 30  # pour une bonne fluidité visuelle
+fps = 3  # pour une bonne fluidité visuelle
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Frogger-AI-bot avec A*')
