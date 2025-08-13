@@ -3,8 +3,6 @@ import time
 import random
 import astar
 
-# NOUVEAU : On importera notre futur fichier astar.py ici
-# import astar
 
 # === CONSTANTES & CONFIG ===
 pygame.init()
@@ -13,7 +11,7 @@ screen_height = 400
 white = (255, 255, 255)
 
 finish = False
-fps = 30  # Légèrement augmenté pour une meilleure fluidité visuelle
+fps = 30  # pour une bonne fluidité visuelle
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Frogger-AI-bot avec A*')
@@ -22,9 +20,10 @@ clock = pygame.time.Clock()
 backgroundImage = pygame.image.load('images/background.gif')
 
 # === GROUPES DE SPRITES ===
+#sprite = objet graphique qui se déplace à l'écran
 all_sprites = pygame.sprite.Group()
-cars = pygame.sprite.Group()  # NOUVEAU : groupe dédié pour les voitures
-logs = pygame.sprite.Group()   # NOUVEAU : groupe dédié pour les bûches
+cars = pygame.sprite.Group()  #  groupe dédié pour les voitures
+logs = pygame.sprite.Group()   # groupe dédié pour les bûches
 turtles = pygame.sprite.Group()
 frogs = pygame.sprite.Group() # Contiendra notre unique grenouille
 
@@ -49,9 +48,6 @@ threeTurtlesDive = pygame.image.load('images/turtlethreedown.gif')
 
 turtleCounter = 0
 
-# NOTE : Les classes Turtle, Log, et Car restent quasi-identiques.
-# La seule modification est que leur méthode collision vérifie maintenant le groupe 'frogs'
-# qui ne contient qu'une seule grenouille. Le code original était déjà bien fait à ce niveau.
 
 class Turtle(pygame.sprite.Sprite):
     def __init__(self, canDive, size, startX, startY, width, height, speed):
@@ -77,6 +73,7 @@ class Turtle(pygame.sprite.Sprite):
                 else:
                     f.rect.x += self.speed
 
+
 class Log(pygame.sprite.Sprite):
     def __init__(self, startX, startY, size, width, height, speed):
         pygame.sprite.Sprite.__init__(self)
@@ -97,6 +94,7 @@ class Log(pygame.sprite.Sprite):
         for f in frogs:
             if f.rect.colliderect(self) and not f.dead:
                 f.rect.x += self.speed
+
 
 class Car(pygame.sprite.Sprite):
     def __init__(self, startX, startY, img, speed, direction, width, height):
@@ -124,7 +122,7 @@ class Car(pygame.sprite.Sprite):
                 f.die()
 
 
-# MODIFIÉ : La classe Frog est grandement simplifiée
+
 class Frog(pygame.sprite.Sprite):
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
@@ -132,7 +130,7 @@ class Frog(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.reset()
         
-        # NOUVEAU : Attributs pour A*
+        # Attributs pour A*
         self.path = []      # Le chemin à suivre, généré par A*
         self.path_step = 0  # L'étape actuelle dans le chemin
 
@@ -151,7 +149,7 @@ class Frog(pygame.sprite.Sprite):
         if self.dead:
             return
 
-        # NOUVEAU : Logique de suivi de chemin
+        # Logique de suivi de chemin
         if self.path and self.path_step < len(self.path):
             next_pos = self.path[self.path_step]
             # Les positions dans le chemin seront des coordonnées de grille (ex: (7, 14))
@@ -184,13 +182,13 @@ class Frog(pygame.sprite.Sprite):
 
         # Zone d'arrivée
         elif self.rect.y <= 50:
-            print("🎉 Victoire ! La grenouille a atteint l'arrivée ! 🎉")
+            print("Victoire ! La grenouille a atteint l'arrivée ! ")
             self.reset() # On la réinitialise pour une nouvelle traversée
 
     def die(self):
         """ La grenouille meurt. """
         if not self.dead:
-            print("💀 La grenouille est morte. 💀")
+            print(" La grenouille est morte.")
             self.image = frog_dead_img
             self.dead = True
 
@@ -198,6 +196,7 @@ class Frog(pygame.sprite.Sprite):
         """ Déplace la grenouille vers une nouvelle case de la grille. """
         self.rect.x = grid_pos[0] * astar.TILE_SIZE
         self.rect.y = grid_pos[1] * astar.TILE_SIZE
+
 
 # === FONCTIONS UTILITAIRES ===
 def text_objects(text, font):
@@ -212,7 +211,7 @@ def message_display(text, position):
 
 def set_level():
     """ Configure ou réinitialise les obstacles sur l'écran. """
-    # Nettoyer les anciens sprites avant d'en créer de nouveaux
+    # Nettoie les anciens sprites avant d'en créer de nouveaux
     for sprite in all_sprites:
         sprite.kill()
     
@@ -244,14 +243,16 @@ def set_level():
         cars.add(c)
         all_sprites.add(c)
 
+
 # === INITIALISATION DU JEU ===
 player_frog = Frog()
 frogs.add(player_frog)
 set_level()
 
-# NOUVEAU : Variable pour gérer la mort et la réinitialisation
+# Variable pour gérer la mort et la réinitialisation
 frog_dead_timer = 0
-RESTART_DELAY = 2000 # 2 secondes de délai après la mort
+RESTART_DELAY = 5000 # milisecondes de délai après la mort
+
 
 # === BOUCLE DE JEU PRINCIPALE ===
 while not finish:
@@ -259,7 +260,7 @@ while not finish:
         if event.type == pygame.QUIT:
             finish = True
 
-    # NOUVEAU : Logique de réinitialisation après la mort
+    # Logique de réinitialisation après la mort
     if player_frog.dead:
         if frog_dead_timer == 0:
             frog_dead_timer = pygame.time.get_ticks() # Démarrer le chrono
@@ -269,34 +270,32 @@ while not finish:
             # On ne réinitialise plus les obstacles pour voir comment A* s'adapte
             # set_level() 
 
-    # --- Logique de l'IA (à remplir) ---
-        # --- Logique de l'IA (Maintenant fonctionnelle) ---
+
+    # --- Logique de l'IA  ---
     if not player_frog.dead:
-        # 1. Créer la grille à jour
+        # On créé la grille à jour
         grid = astar.create_grid(screen_width, screen_height, cars, logs, turtles)
 
-        # 2. Définir le départ et l'arrivée
+        # On définit le départ et l'arrivée
         start_pos_grid = (player_frog.rect.x // astar.TILE_SIZE, player_frog.rect.y // astar.TILE_SIZE)
 
-        # Définir plusieurs points d'arrivée possibles (les "maisons" de la grenouille)
+        # On définit les plusieurs points d'arrivée possibles (les "maisons" de la grenouille)
         end_positions = [(x, 2) for x in range(1, 13, 2)] # Cases de la ligne y=50
 
-        # Choisir la destination la plus proche comme cible
-        # (Une amélioration simple mais efficace)
+        # On choisit la destination la plus proche comme cible pour A*
         end_pos_grid = min(end_positions, key=lambda pos: abs(pos[0] - start_pos_grid[0]))
 
-        # 3. Trouver le chemin
+        # On applique A* pour trouver le chemin
         path = astar.astar(grid, start_pos_grid, end_pos_grid)
 
-        # 4. Faire le premier pas si un chemin existe
+
         if path and len(path) > 1:
-            next_step = path[1]
+            next_step = path[1] # la toute première case vers laquelle la grenouille doit se déplacer pour suivre le chemin
             player_frog.move_to(next_step)
         else:
-            # Si aucun chemin n'est trouvé, la grenouille ne bouge pas.
-            # On pourrait ajouter une logique ici, comme attendre un peu.
-            # print("Aucun chemin trouvé, en attente...")
+            # Si aucun chemin n'est trouvé, la grenouille ne bouge pas
             pass
+
 
     # Mettre à jour les sprites APRES la décision de l'IA
     all_sprites.update() 
@@ -313,7 +312,7 @@ while not finish:
     all_sprites.draw(screen)
     frogs.draw(screen)
 
-    # Affichage du statut (simplifié)
+    # Affichage du statut 
     if player_frog.dead:
         message_display('MORT', 0)
     else:
