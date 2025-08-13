@@ -274,7 +274,7 @@ while not finish:
     # --- Logique de l'IA  ---
     if not player_frog.dead:
         # On créé la grille à jour
-        grid = astar.create_grid(screen_width, screen_height, cars, logs, turtles)
+        grid = astar.create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtleCounter)
 
         # On définit le départ et l'arrivée
         start_pos_grid = (player_frog.rect.x // astar.TILE_SIZE, player_frog.rect.y // astar.TILE_SIZE)
@@ -301,11 +301,6 @@ while not finish:
     all_sprites.update() 
     player_frog.check_status() # On vérifie le statut après le mouvement du monde
 
-
-    # --- Mise à jour des éléments ---
-    if not player_frog.dead:
-        all_sprites.update()
-        frogs.update()
 
     # --- Affichage ---
     screen.blit(backgroundImage, (0, 0))

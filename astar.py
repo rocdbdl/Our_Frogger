@@ -69,6 +69,71 @@ def create_grid(screen_width, screen_height, cars, logs, turtles):
 
     return grid
 
+
+
+# version plus intelligente de create_grid
+# Cette version prédit la position des objets à la prochaine frame t+1
+# Elle est utile pour éviter que la grenouille ne meure à cause d'un obstacle qui
+# n'est pas encore là dans la frame actuelle t.
+def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter):
+    """
+    Crée une grille 2D représentant l'état du jeu à la PROCHAINE frame (t+1).
+    0 = praticable, 1 = obstacle.
+    """
+    grid_width = screen_width // TILE_SIZE
+    grid_height = screen_height // TILE_SIZE
+    grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
+
+    # On marque les zones d'eau comme des obstacles
+    for row in range(3, 8):
+        for col in range(grid_width):
+            grid[row][col] = 1
+
+    # On prédit la position des surfaces sûres
+    safe_surfaces = pygame.sprite.Group(logs, turtles)
+    for sprite in safe_surfaces:
+        # On prédit si la tortue va plonger
+        will_dive = False
+        if isinstance(sprite, pygame.sprite.Sprite) and hasattr(sprite, 'canDive') and sprite.canDive == 2:
+            # Si le compteur arrive à 50 à la prochaine frame, l'état va s'inverser
+            if (turtle_counter + 1) % 50 == 0:
+                will_dive = (sprite.state == 0) # Si elle ne plonge pas, elle va plonger
+            else:
+                will_dive = (sprite.state == 1) # Si elle plonge, elle continue de plonger
+        
+        if will_dive:
+            continue  # Cette tortue ne sera pas sûre, on ne la marque pas
+
+        # Calcul de la position future
+        future_rect_left = sprite.rect.left + sprite.speed
+        future_rect_right = sprite.rect.right + sprite.speed
+        
+        start_col = int(future_rect_left // TILE_SIZE)
+        end_col = int(future_rect_right // TILE_SIZE)
+        row = sprite.rect.top // TILE_SIZE
+        
+        for col in range(start_col, end_col + 1):
+            if 0 <= col < grid_width:
+                grid[row][col] = 0
+
+
+    # On prédit la position des voitures
+    for car in cars:
+        # Calcul de la position future
+        future_rect_left = car.rect.left + car.speed
+        future_rect_right = car.rect.right + car.speed
+
+        start_col = int(future_rect_left // TILE_SIZE)
+        end_col = int(future_rect_right // TILE_SIZE)
+        row = car.rect.top // TILE_SIZE
+
+        for col in range(start_col, end_col + 1):
+            if 0 <= row < grid_height and 0 <= col < grid_width:
+                grid[row][col] = 1
+
+    return grid
+
+
 def astar(grid, start, end):
     """
     Retourne une liste de tuples (ligne, colonne) représentant le chemin du début à la fin.
