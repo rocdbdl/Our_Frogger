@@ -48,16 +48,16 @@ def create_grid(screen_width, screen_height, cars, logs, turtles):
             continue
 
         start_col = sprite.rect.left // TILE_SIZE
-        end_col = (sprite.rect.right - 1) // TILE_SIZE  # borne droite exclusive -> -1
+        end_col = (sprite.rect.right - 1) // TILE_SIZE  
 
-        # Clamp dans la grille
+
         start_col = max(0, start_col)
         end_col = min(grid_width - 1, end_col)
 
         for col in range(start_col, end_col + 1):
             grid[row][col] = 0
 
-    # Voitures = obstacles
+    # Traitement des voitures
     for car in cars:
         row = car.rect.top // TILE_SIZE
         if not (0 <= row < grid_height):
@@ -77,8 +77,7 @@ def create_grid(screen_width, screen_height, cars, logs, turtles):
 
 
 
-# version plus intelligente de create_grid
-# Cette version prédit la position des objets à la prochaine frame t+1
+# Cette version de create_grid prédit la position des objets à la prochaine frame t+1
 # Elle est utile pour éviter que la grenouille ne meure à cause d'un obstacle qui
 # n'est pas encore là dans la frame actuelle t.
 def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter):
@@ -90,7 +89,7 @@ def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, tur
     grid_height = screen_height // TILE_SIZE
     grid = [[0 for _ in range(grid_width)] for _ in range(grid_height)]
 
-    # Marque la rivière comme obstacles (lignes 3 à 7)
+    # Marque la rivière comme obstacles 
     for row in range(3, 8):
         if 0 <= row < grid_height:
             for col in range(grid_width):
@@ -99,7 +98,7 @@ def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, tur
     # Surfaces sûres prédites (bûches & tortues non plongeantes à t+1)
     safe_surfaces = pygame.sprite.Group(logs, turtles)
     for sprite in safe_surfaces:
-        # Prédire le plongeon des tortues
+        # on prédit le plongeon des tortues
         will_dive = False
         if hasattr(sprite, 'canDive') and sprite.canDive == 2:
             if (turtle_counter + 1) % 50 == 0:
@@ -118,16 +117,16 @@ def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, tur
             continue
 
         start_col = int(future_left // TILE_SIZE)
-        end_col = int((future_right - 1) // TILE_SIZE)  # borne droite exclusive -> -1
+        end_col = int((future_right - 1) // TILE_SIZE)  
 
-        # Clamp
+
         start_col = max(0, start_col)
         end_col = min(grid_width - 1, end_col)
 
         for col in range(start_col, end_col + 1):
             grid[row][col] = 0
 
-    # Voitures prédites à t+1 = obstacles
+    # Voitures prédites à t+1
     for car in cars:
         future_left = car.rect.left + car.speed
         future_right = car.rect.right + car.speed
@@ -146,6 +145,8 @@ def create_predictive_grid(screen_width, screen_height, cars, logs, turtles, tur
 
     return grid
 
+
+# version "plus intelligente" de create_grid qui combine les deux fonctions précédentes.
 def conservative_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter):
     g_now  = create_grid(screen_width, screen_height, cars, logs, turtles)
     g_next = create_predictive_grid(screen_width, screen_height, cars, logs, turtles, turtle_counter)
@@ -153,7 +154,7 @@ def conservative_grid(screen_width, screen_height, cars, logs, turtles, turtle_c
     grid = [[0]*w for _ in range(h)]
     for r in range(h):
         for c in range(w):
-            # 1 = obstacle. On est conservateur: obstacle s'il y a obstacle maintenant OU à la prochaine frame.
+            # on check s'il y a obstacle maintenant OU à la prochaine frame.
             grid[r][c] = 1 if (g_now[r][c] == 1 or g_next[r][c] == 1) else 0
     return grid
 
@@ -172,7 +173,7 @@ def astar(grid, start, end):
     open_list.append(start_node)
 
     while open_list:
-        # --- Trouve le nœud avec le coût F le plus bas dans la open_list ---
+        # Trouve le nœud avec le coût F le plus bas dans la open_list
         current_node = open_list[0]
         current_index = 0
         for index, item in enumerate(open_list):
@@ -180,11 +181,11 @@ def astar(grid, start, end):
                 current_node = item
                 current_index = index
 
-        # --- Déplace le nœud actuel de open_list à closed_list ---
+        # Déplace le nœud actuel de open_list à closed_list
         open_list.pop(current_index)
         closed_list.append(current_node)
 
-        # --- Vérifie si on a atteint la fin ---
+        # Vérifie si on a atteint la fin
         if current_node == end_node:
             path = []
             current = current_node
@@ -193,9 +194,8 @@ def astar(grid, start, end):
                 current = current.parent
             return path[::-1]  # Retourne le chemin inversé (du début à la fin)
 
-        # --- Génère les voisins (enfants) ---
+        # Génère les voisins (enfants)
         children = []
-        # Mouvements possibles : Haut, Bas, Gauche, Droite
         for new_position in [(0, -1), (0, 1), (-1, 0), (1, 0)]:
             node_position = (current_node.position[0] + new_position[0], current_node.position[1] + new_position[1])
 
@@ -210,7 +210,7 @@ def astar(grid, start, end):
             new_node = Node(current_node, node_position)
             children.append(new_node)
 
-        # --- Traite les voisins ---
+        # On traite les voisins
         for child in children:
             # Si le voisin est déjà dans la closed_list, on l'ignore
             if child in closed_list:
@@ -226,7 +226,7 @@ def astar(grid, start, end):
             if any(open_node for open_node in open_list if child == open_node and child.g >= open_node.g):
                 continue
             
-            # Ajouter le voisin à la open_list
+            # On ajoute donc ici le voisin à la open_list
             open_list.append(child)
             
     return None # Retourne None si aucun chemin n'est trouvé

@@ -1,17 +1,27 @@
-# Frogger-AI-bot
+# Jeu Frogger
 
-## Description
+## Installation
 
-A Frogger clone that uses a machine learning AI written in Python using the PyGame library. The AI is implemented using a genetic algorithm.
+Pour installer les dépendances nécessaires, exécutez la commande suivante :
 
-Each generation has 100 frogs that will try to make it to the other side. Once one succeeds the training stops and that frog's path is used to win the game.
+```bash
+pip install -r requirements.txt
+```
 
-It uses images from the original Frogger game from 1981. The base code and sprites for making the Frogger base game can be found at https://www.pygame.org/project/1311, which was modified for use with the learning algorithm.
+## Exécution du jeu
 
-## :computer: Run program :computer:
+Deux versions du jeu sont disponibles :
 
-To run the program just start the Python script by running `python frogger.py` or the equivalent command in your system.
+### Version classique (x,y)
+```bash
+python frogger.py
+```
 
-## Screenshot
+### Version spatio-temporelle
+```bash
+python frogger_spatiotemporal.py
+```
 
-![alt tag](https://github.com/pecurka/Frogger-AI-bot/blob/master/screenshots/screenshot.png)
+## Comment jouer
+
+Laissez la grenouille essayer de traverser la route et la rivière !

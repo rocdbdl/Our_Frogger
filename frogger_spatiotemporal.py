@@ -1,9 +1,4 @@
-# frogger_spatiotemporal.py
-
 import pygame
-import time
-import random
-# NOUVEAU : Import du nouveau fichier A* avec un alias pour plus de clarté
 import astar_spatiotemporal as astar_st
 
 # === CONSTANTES & CONFIG ===
@@ -12,8 +7,7 @@ screen_width = 350
 screen_height = 400
 white = (255, 255, 255)
 finish = False
-# Un FPS plus élevé est mieux pour voir l'exécution fluide du plan
-fps = 3
+fps = 3   #on l'a choisi bas pour bien voir les déplacements de la grenouille
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Frogger avec A* Spatio-Temporel')
@@ -52,7 +46,7 @@ turtleCounter = 0
 
 
 class Turtle(pygame.sprite.Sprite):
-    def __init__(self, canDive, size, startX, startY, width, height, speed):
+    def __init__(self, canDive, size, startX, startY, speed):
         pygame.sprite.Sprite.__init__(self)
         self.canDive = canDive
         self.size = size
@@ -77,7 +71,7 @@ class Turtle(pygame.sprite.Sprite):
 
 
 class Log(pygame.sprite.Sprite):
-    def __init__(self, startX, startY, size, width, height, speed):
+    def __init__(self, startX, startY, size, speed):
         pygame.sprite.Sprite.__init__(self)
         self.size = size
         if self.size == 'short': self.image = logShort
@@ -99,7 +93,7 @@ class Log(pygame.sprite.Sprite):
 
 
 class Car(pygame.sprite.Sprite):
-    def __init__(self, startX, startY, img, speed, direction, width, height):
+    def __init__(self, startX, startY, img, speed, direction):
         pygame.sprite.Sprite.__init__(self)
         if img == 'yellow': self.image = yellowCar
         elif img == 'green': self.image = greenCar
@@ -133,32 +127,32 @@ class Frog(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.reset()
 
+    # Réinitialise la grenouille et son plan
     def reset(self):
-        """ Réinitialise la grenouille et son plan. """
         self.rect.centerx = screen_width / 2
         self.rect.y = 350
         self.dead = False
         self.image = frog_img
         # Attributs pour le plan spatio-temporel
-        self.path = []      # Le plan complet à suivre
-        self.path_step = 0  # L'étape actuelle du plan
+        self.path = []      
+        self.path_step = 0  
 
+    # Suit le plan pas à pas s'il en existe un
     def update(self):
-        """ Suit le plan pas à pas s'il en existe un. """
         if self.dead:
             return
 
         # Si on a un plan, on avance à l'étape suivante
         if self.path and self.path_step < len(self.path):
-            # Récupérer la prochaine position du plan (col, row)
+            # On récupère la prochaine position du plan (col, row)
             next_move_pos = self.path[self.path_step][0:2]
             self.move_to(next_move_pos)
             self.path_step += 1
         
         self.check_status()
 
+    # Vérifie si la grenouille est morte ou a gagné
     def check_status(self):
-        """ Vérifie si la grenouille est morte ou a gagné """
         if self.dead: return
         
         # Hors de l'écran à cause d'une bûche/tortue
@@ -181,15 +175,15 @@ class Frog(pygame.sprite.Sprite):
             if not on_safe_surface:
                 self.die()
 
+
     def die(self):
-        """ La grenouille meurt """
         if not self.dead:
             print("La grenouille est morte.")
             self.image = frog_dead_img
             self.dead = True
 
+    
     def move_to(self, grid_pos):
-        """ Déplace la grenouille vers une case de la grille. """
         self.rect.x = grid_pos[0] * astar_st.TILE_SIZE
         self.rect.y = grid_pos[1] * astar_st.TILE_SIZE
 
@@ -212,7 +206,7 @@ def set_level():
     for sprite in all_sprites:
         sprite.kill()
     
-    # (canDive, size, startX, startY, width, height, speed)
+
     for i in range(8):
         is_diving = i % 3 == 0
         if i < 4:
@@ -222,7 +216,7 @@ def set_level():
         turtles.add(t)
         all_sprites.add(t)
 
-    # (x, y, size, width, height, speed)
+
     for i in range(9):
         if i < 3: l = Log(150 * i, 150, 'short', 62.5, 25, 3)
         elif i < 6: l = Log(200 * (i-3), 125, 'long', 150, 25, 4)
@@ -230,7 +224,7 @@ def set_level():
         logs.add(l)
         all_sprites.add(l)
 
-    # (x, y, img, speed, direction, width, height)
+ 
     for i in range(12):
         if i < 3: c = Car(75 * i, 325, 'yellow', 6, -1, 25, 25)
         elif i < 6: c = Car(75 * (i-3), 300, 'dozer', 2, 1, 25, 25)
@@ -242,6 +236,7 @@ def set_level():
 
 
 # === INITIALISATION DU JEU ===
+
 player_frog = Frog()
 frogs.add(player_frog)
 set_level()
@@ -249,7 +244,7 @@ set_level()
 frog_dead_timer = 0
 RESTART_DELAY = 2000 
 
-# === BOUCLE DE JEU PRINCIPALE (Version Spatio-Temporelle) ===
+# === BOUCLE DE JEU PRINCIPALE ===
 while not finish:
     for event in pygame.event.get():
         if event.type == pygame.QUIT:
@@ -293,9 +288,9 @@ while not finish:
     
     # Si la grenouille a terminé son plan, on efface le plan pour qu'elle en calcule un nouveau.
     if player_frog.path and player_frog.path_step >= len(player_frog.path):
-        # Cas spécial : si la grenouille a atteint sa destination, on la reset.
+        # si la grenouille a atteint sa destination, on la reset.
         if player_frog.rect.y <= 50:
-             print("🎉 Victoire ! La grenouille a atteint l'arrivée ! 🎉")
+             print("Victoire ! La grenouille a atteint l'arrivée")
              player_frog.reset()
         else: # Sinon, elle cherche un nouveau plan depuis sa position actuelle
              player_frog.path = []

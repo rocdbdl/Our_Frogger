@@ -11,7 +11,7 @@ screen_height = 400
 white = (255, 255, 255)
 
 finish = False
-fps = 3  # pour une bonne fluidité visuelle
+fps = 3  #on l'a choisi bas pour bien voir les déplacements de la grenouille
 
 screen = pygame.display.set_mode((screen_width, screen_height))
 pygame.display.set_caption('Frogger-AI-bot avec A*')
@@ -50,7 +50,7 @@ turtleCounter = 0
 
 
 class Turtle(pygame.sprite.Sprite):
-    def __init__(self, canDive, size, startX, startY, width, height, speed):
+    def __init__(self, canDive, size, startX, startY, speed):
         pygame.sprite.Sprite.__init__(self)
         self.canDive = canDive
         self.size = size
@@ -75,7 +75,7 @@ class Turtle(pygame.sprite.Sprite):
 
 
 class Log(pygame.sprite.Sprite):
-    def __init__(self, startX, startY, size, width, height, speed):
+    def __init__(self, startX, startY, size, speed):
         pygame.sprite.Sprite.__init__(self)
         self.size = size
         if self.size == 'short': self.image = logShort
@@ -97,7 +97,7 @@ class Log(pygame.sprite.Sprite):
 
 
 class Car(pygame.sprite.Sprite):
-    def __init__(self, startX, startY, img, speed, direction, width, height):
+    def __init__(self, startX, startY, img, speed, direction):
         pygame.sprite.Sprite.__init__(self)
         if img == 'yellow': self.image = yellowCar
         elif img == 'green': self.image = greenCar
@@ -134,8 +134,8 @@ class Frog(pygame.sprite.Sprite):
         self.path = []      # Le chemin à suivre, généré par A*
         self.path_step = 0  # L'étape actuelle dans le chemin
 
+    # Réinitialise la position et l'état de la grenouille
     def reset(self):
-        """ Réinitialise la position et l'état de la grenouille. """
         self.rect.centerx = screen_width / 2
         self.rect.y = 350
         self.dead = False
@@ -144,16 +144,16 @@ class Frog(pygame.sprite.Sprite):
         self.path_step = 0
         print("Grenouille réinitialisée.")
 
+
+    # Met à jour la grenouille
     def update(self):
-        """ Met à jour la grenouille. Soit en suivant le chemin A*, soit en vérifiant si elle est morte. """
         if self.dead:
             return
 
-        # Logique de suivi de chemin
         if self.path and self.path_step < len(self.path):
             next_pos = self.path[self.path_step]
-            # Les positions dans le chemin seront des coordonnées de grille (ex: (7, 14))
-            # Nous les convertissons en pixels. La taille d'une case est 25x25.
+            # Les positions dans le chemin seront des coordonnées de grille
+            # Nous les convertissons en pixels. La taille d'une case est 25x25
             self.rect.x = next_pos[0] * 25
             self.rect.y = next_pos[1] * 25
             self.path_step += 1
@@ -161,13 +161,13 @@ class Frog(pygame.sprite.Sprite):
         # Vérification des conditions de mort ou de victoire
         self.check_status()
 
+    # Vérifie si la grenouille est dans l'eau, hors de l'écran ou a gagné
     def check_status(self):
-        """ Vérifie si la grenouille est dans l'eau, hors de l'écran ou a gagné. """
         # Hors de l'écran
         if self.rect.right < 0 or self.rect.left > screen_width:
             self.die()
             
-        # Dans la rivière (zone dangereuse)
+        # Dans la rivière 
         if self.rect.y <= 175 and self.rect.y > 50:
             on_safe_surface = False
             # Vérifie si elle est sur une bûche ou une tortue
@@ -186,14 +186,12 @@ class Frog(pygame.sprite.Sprite):
             self.reset() # On la réinitialise pour une nouvelle traversée
 
     def die(self):
-        """ La grenouille meurt. """
         if not self.dead:
             print(" La grenouille est morte.")
             self.image = frog_dead_img
             self.dead = True
 
     def move_to(self, grid_pos):
-        """ Déplace la grenouille vers une nouvelle case de la grille. """
         self.rect.x = grid_pos[0] * astar.TILE_SIZE
         self.rect.y = grid_pos[1] * astar.TILE_SIZE
 
@@ -209,13 +207,13 @@ def message_display(text, position):
     TextRect.center = ((screen_width / 2), 10 + position)
     screen.blit(TextSurf, TextRect)
 
+# Configure ou réinitialise les obstacles sur l'écran
 def set_level():
-    """ Configure ou réinitialise les obstacles sur l'écran. """
-    # Nettoie les anciens sprites avant d'en créer de nouveaux
+
     for sprite in all_sprites:
         sprite.kill()
     
-    # (canDive, size, startX, startY, width, height, speed)
+
     for i in range(8):
         is_diving = i % 3 == 0
         if i < 4:
@@ -225,7 +223,7 @@ def set_level():
         turtles.add(t)
         all_sprites.add(t)
 
-    # (x, y, size, width, height, speed)
+
     for i in range(9):
         if i < 3: l = Log(150 * i, 150, 'short', 62.5, 25, 3)
         elif i < 6: l = Log(200 * (i-3), 125, 'long', 150, 25, 4)
@@ -233,7 +231,7 @@ def set_level():
         logs.add(l)
         all_sprites.add(l)
 
-    # (x, y, img, speed, direction, width, height)
+
     for i in range(12):
         if i < 3: c = Car(75 * i, 325, 'yellow', 6, -1, 25, 25)
         elif i < 6: c = Car(75 * (i-3), 300, 'dozer', 2, 1, 25, 25)
@@ -249,7 +247,6 @@ player_frog = Frog()
 frogs.add(player_frog)
 set_level()
 
-# Variable pour gérer la mort et la réinitialisation
 frog_dead_timer = 0
 RESTART_DELAY = 5000 # milisecondes de délai après la mort
 
@@ -267,8 +264,7 @@ while not finish:
         elif pygame.time.get_ticks() - frog_dead_timer > RESTART_DELAY:
             player_frog.reset()
             frog_dead_timer = 0
-            # On ne réinitialise plus les obstacles pour voir comment A* s'adapte
-            # set_level() 
+
 
 
     # --- Logique de l'IA  ---
@@ -279,8 +275,8 @@ while not finish:
         # On définit le départ et l'arrivée
         start_pos_grid = (player_frog.rect.x // astar.TILE_SIZE, player_frog.rect.y // astar.TILE_SIZE)
 
-        # On définit les plusieurs points d'arrivée possibles (les "maisons" de la grenouille)
-        end_positions = [(x, 2) for x in range(1, 13, 2)] # Cases de la ligne y=50
+        # On définit les plusieurs points d'arrivée possibles 
+        end_positions = [(x, 2) for x in range(1, 13, 2)] 
 
         # On choisit la destination la plus proche comme cible pour A*
         end_pos_grid = min(end_positions, key=lambda pos: abs(pos[0] - start_pos_grid[0]))
@@ -297,7 +293,7 @@ while not finish:
             pass
 
 
-    # Mettre à jour les sprites APRES la décision de l'IA
+    # Mise à jour des sprites 
     all_sprites.update() 
     player_frog.check_status() # On vérifie le statut après le mouvement du monde
 
@@ -307,7 +303,7 @@ while not finish:
     all_sprites.draw(screen)
     frogs.draw(screen)
 
-    # Affichage du statut 
+
     if player_frog.dead:
         message_display('MORT', 0)
     else:
@@ -322,7 +318,7 @@ while not finish:
         turtleCounter = 0
         for t in turtles:
             if t.canDive == 2:
-                t.state = 1 - t.state # Bascule entre 0 et 1
+                t.state = 1 - t.state 
                 if t.size == 2:
                     t.image = twoTurtlesDive if t.state == 1 else twoTurtles
                 else:
